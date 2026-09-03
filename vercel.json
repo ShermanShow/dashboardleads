@@ -1,5 +1,5 @@
 {
   "framework": "nextjs",
-  "buildCommand": "next build",
+  "buildCommand": "node scripts/fetch-leads.mjs && next build",
   "installCommand": "npm install"
 }
