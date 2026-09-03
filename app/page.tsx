@@ -56,7 +56,7 @@ export default function Home(){
  const grouped=useMemo(()=>Object.entries(events.reduce<Record<string,typeof events>>((a,l)=>{const s=normalizeSeller(l.seller);(a[s]??=[]).push(l);return a;},{})),[events]);
  const eventsByDate=useMemo(()=>{
   if(!isAll)return [];
-  const sorted=[...events].sort((a,b)=>dateKey(a.eventDate,2026)-dateKey(b.eventDate,2026)||Number(a.id)-Number(b.id));
+  const sorted=[...events].sort((a,b)=>dateKey(b.eventDate,2026)-dateKey(a.eventDate,2026)||Number(a.id)-Number(b.id));
   const map:Record<string,typeof events>={};
   sorted.forEach(l=>{const d=l.eventDate||"SIN FECHA";(map[d]??=[]).push(l);});
   return Object.entries(map);
