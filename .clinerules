@@ -1,0 +1,6 @@
+# Cline Rules — Dashboard de Leads
+
+## Terminal y procesos
+- Do not run blocking terminal commands or sleep scripts.
+- When running node scripts or tests, ensure they execute quickly and exit immediately.
+- If a process needs to run continuously, run it in the background.

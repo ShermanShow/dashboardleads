@@ -28,7 +28,7 @@ const yearOf=(s:string):number|null=>{const m=s&&s.match(/\/(\d{2,4})$/);if(!m)r
 const dateKey=(s:string,fallbackYear:number)=>{if(!s)return 0;const p=s.split("/").map(x=>parseInt(x,10));if(p.length<2||isNaN(p[0])||isNaN(p[1]))return 0;const y=p.length>2&&!isNaN(p[2])?(p[2]<100?2000+p[2]:p[2]):fallbackYear;return y*10000+(p[1]||0)*100+(p[0]||0);};
 const toneOf=(e:string)=>/cerrad|desinter|baja|sin (respuesta|interes)/i.test(e)?"closed":/presup|oferta|cotiz|precio/i.test(e)?"quote":/seguim|recontact|contact|llamad|interes/i.test(e)?"open":/demo|visita|reunion/i.test(e)?"demo":"neutral";
 export default function Home(){
- const [selectedDate,setSelectedDate]=useState("04/09");
+ const [selectedDate,setSelectedDate]=useState("TODOS");
  const [selectedLead,setSelectedLead]=useState<Lead|null>(null);
  const [leads,setLeads]=useState<Lead[]>(initialLeads);
  const refreshFromServer=useCallback(async (keepId?:string|null)=>{
@@ -50,9 +50,17 @@ export default function Home(){
  const reasons=useMemo(()=>Object.entries(leads.filter(l=>l.status==="CERRADO").reduce<Record<string,number>>((a,l)=>{const r=cleanReason(l.reason);a[r]=(a[r]||0)+1;return a;},{})).sort((a,b)=>b[1]-a[1]),[leads]);
  const reasonTotal=reasons.reduce((a,[,c])=>a+c,0);
  const chartData=reasons.map(([name,value])=>({name,value,color:reasonColor(name)}));
- const dates=useMemo(()=>Array.from(new Set(leads.map(l=>l.eventDate).filter(Boolean))),[leads]);
- const events=useMemo(()=>leads.filter(l=>l.eventDate===selectedDate&&l.action),[leads,selectedDate]);
+ const isAll=selectedDate==="TODOS";
+ const dates=useMemo(()=>["TODOS",...Array.from(new Set(leads.map(l=>l.eventDate).filter(Boolean)))],[leads]);
+ const events=useMemo(()=>leads.filter(l=>l.action&&(isAll||l.eventDate===selectedDate)),[leads,isAll,selectedDate]);
  const grouped=useMemo(()=>Object.entries(events.reduce<Record<string,typeof events>>((a,l)=>{const s=normalizeSeller(l.seller);(a[s]??=[]).push(l);return a;},{})),[events]);
+ const eventsByDate=useMemo(()=>{
+  if(!isAll)return [];
+  const sorted=[...events].sort((a,b)=>dateKey(a.eventDate,2026)-dateKey(b.eventDate,2026)||Number(a.id)-Number(b.id));
+  const map:Record<string,typeof events>={};
+  sorted.forEach(l=>{const d=l.eventDate||"SIN FECHA";(map[d]??=[]).push(l);});
+  return Object.entries(map);
+ },[events,isAll]);
  return <main className="workspace"><header className="workspace-header"><div><p className="eyebrow">LEADS VENTAS / SEGUIMIENTO</p><h1>Control comercial</h1></div></header>
  <section className="metrics"><Metric icon={<Users size={18}/>} label="Contactos" value={leads.length.toString()} note="contactos cargados" tone="blue"/><Metric icon={<BarChart3 size={18}/>} label="Caídos" value={closed.toString()} note="estado CERRADO" tone="red"/><Metric icon={<CheckCircle2 size={18}/>} label="Abiertos" value={open.toString()} note="requieren seguimiento" tone="green"/><Metric icon={<CalendarDays size={18}/>} label="Eventos del día" value={events.length.toString()} note={selectedDate} tone="orange"/></section>
  <section className="stack">
@@ -88,9 +96,9 @@ export default function Home(){
   <article className="panel event-panel">
    <div className="panel-head">
     <div><h2>Eventos del día</h2><p>Hacé clic en un contacto para ver su historial</p></div>
-    <select className="date-select" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}>{dates.map(d=><option key={d}>{d}</option>)}</select>
+    <select className="date-select" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}>{dates.map(d=><option key={d} value={d}>{d==="TODOS"?"Todos (todos los eventos)":d}</option>)}</select>
    </div>
-   {grouped.length===0?<div className="empty-events">No hay acciones cargadas para esta fecha.</div>:<div className="event-groups">{grouped.map(([seller,items])=><div className="event-group" key={seller}><div className="group-title"><span className="seller-dot"/><h3>{seller}</h3><em>{items.length} evento{items.length===1?"":"s"} · clic para historial</em></div>{items.map(l=><div className="event-card is-click" key={l.id} role="button" tabIndex={0} onClick={()=>setSelectedLead(l)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedLead(l);}}}><div className="event-date">{l.eventDate}</div><div className="event-main"><b>{fullName(l)||"Sin nombre"}</b><span>{l.product||"Línea no asignada"}</span><small><strong>Acción:</strong> {l.action||"—"}</small>{l.comment&&<small><strong>Comentario ventas:</strong> {l.comment}</small>}</div><div className="event-id">#{l.id}</div></div>)}</div>)}</div>}
+   {events.length===0?<div className="empty-events">No hay eventos para esta selección.</div>:(isAll?<div className="event-groups">{eventsByDate.map(([d,items])=><div className="event-group" key={d}><div className="group-title"><span className="seller-dot"/><h3>{d==="SIN FECHA"?"Sin fecha asignada":d}</h3><em>{items.length} evento{items.length===1?"":"s"}</em></div>{items.map(l=><div className="event-card is-click" key={l.id+"-"+l.fila} role="button" tabIndex={0} onClick={()=>setSelectedLead(l)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedLead(l);}}}><div className="event-date">{l.eventDate||"—"}</div><div className="event-main"><b>{fullName(l)||"Sin nombre"}</b><span>{l.product||"Línea no asignada"}</span><small><strong>Vendedor:</strong> {normalizeSeller(l.seller)}</small>{l.comment&&<small><strong>Comentario ventas:</strong> {l.comment}</small>}</div><div className="event-id">#{l.id}</div></div>)}</div>)}</div>:<div className="event-groups">{grouped.map(([seller,items])=><div className="event-group" key={seller}><div className="group-title"><span className="seller-dot"/><h3>{seller}</h3><em>{items.length} evento{items.length===1?"":"s"} · clic para historial</em></div>{items.map(l=><div className="event-card is-click" key={l.id+"-"+l.fila} role="button" tabIndex={0} onClick={()=>setSelectedLead(l)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedLead(l);}}}><div className="event-date">{l.eventDate}</div><div className="event-main"><b>{fullName(l)||"Sin nombre"}</b><span>{l.product||"Línea no asignada"}</span><small><strong>Acción:</strong> {l.action||"—"}</small>{l.comment&&<small><strong>Comentario ventas:</strong> {l.comment}</small>}</div><div className="event-id">#{l.id}</div></div>)}</div>)}</div>)}
   </article>
   {selectedLead&&<ContactHistoryModal lead={selectedLead} onClose={()=>setSelectedLead(null)} onSaved={(id)=>refreshFromServer(id)} />}
  </section>
