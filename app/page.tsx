@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
-import { BarChart3, CalendarDays, CheckCircle2, Users } from "lucide-react";
+import { BarChart3, CalendarDays, CheckCircle2, Users, X } from "lucide-react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 const leads=[
   {"id":"359","name":"Selene","last":"","product":"DTF UV","seller":"ANDREA","status":"CERRADO","eventDate":"","action":"","reason":"DERIVADO","comment":""},
   {"id":"360","name":"Leandro","last":"Funes","product":"CAMA PLANA UV","seller":"ANDREA","status":"CERRADO","eventDate":"","action":"","reason":"DERIVADO","comment":""},
@@ -184,18 +185,105 @@ const leads=[
 ];
 const normalizeSeller=(value:string)=>{const v=value.trim().toUpperCase();if(v==="OFICINA"||v.startsWith("EDGARDO/"))return "EDGARDO";return value.trim()||"SIN ASIGNAR";};
 const cleanReason=(value:string)=>value.trim()||"SIN MOTIVO CARGADO";
+type Lead=(typeof leads)[number];
+// Colores de los motivos según la planilla (valores provisorios hasta recibir la foto con los colores exactos)
+const REASON_COLORS:Record<string,string>={
+  DESINTERES:"#f0919c", // rojo suave
+  "PRECIO ALTO":"#c81e2e", // rojo fuerte
+  "FALTA STOCK":"#f2c94c", // amarillo
+  DERIVADO:"#5b9bd5", // azul
+  "CALIDAD LEAD":"#a78bfa", // violeta
+  SEGUIMIENTO:"#2fb98a", // verde claro
+  CONCRETADO:"#178a5b", // verde
+  "SIN MOTIVO CARGADO":"#c3cdd9", // gris
+};
+const reasonColor=(r:string)=>REASON_COLORS[r]??"#c3cdd9";
+const fullName=(l:Lead)=>[l.name,l.last].filter(Boolean).join(" ").trim();
+const contactHistory=(l:Lead)=>leads.filter(x=>fullName(x).toUpperCase()===fullName(l).toUpperCase()).sort((a,b)=>Number(a.id)-Number(b.id));
 export default function Home(){
  const [selectedDate,setSelectedDate]=useState("04/09");
+ const [selectedLead,setSelectedLead]=useState<Lead|null>(null);
  const closed=leads.filter(l=>l.status==="CERRADO").length, open=leads.filter(l=>l.status==="ABIERTO").length;
  const reasons=useMemo(()=>Object.entries(leads.filter(l=>l.status==="CERRADO").reduce<Record<string,number>>((a,l)=>{const r=cleanReason(l.reason);a[r]=(a[r]||0)+1;return a;},{})).sort((a,b)=>b[1]-a[1]),[]);
+ const reasonTotal=reasons.reduce((a,[,c])=>a+c,0);
+ const chartData=reasons.map(([name,value])=>({name,value,color:reasonColor(name)}));
  const dates=useMemo(()=>Array.from(new Set(leads.map(l=>l.eventDate).filter(Boolean))),[]);
  const events=useMemo(()=>leads.filter(l=>l.eventDate===selectedDate&&l.action),[selectedDate]);
  const grouped=useMemo(()=>Object.entries(events.reduce<Record<string,typeof events>>((a,l)=>{const s=normalizeSeller(l.seller);(a[s]??=[]).push(l);return a;},{})),[events]);
- const maxReason=Math.max(...reasons.map(r=>r[1]),1);
  return <main className="workspace"><header className="workspace-header"><div><p className="eyebrow">LEADS VENTAS / SEGUIMIENTO</p><h1>Control comercial</h1><p className="subtitle">Actividad y motivos de los contactos cargados desde la fila 832</p></div><div className="sync-badge"><i/> Datos del Sheet · actualizado</div></header>
  <section className="metrics"><Metric icon={<Users size={18}/>} label="Contactos" value={leads.length.toString()} note="contactos cargados" tone="blue"/><Metric icon={<BarChart3 size={18}/>} label="Caídos" value={closed.toString()} note="estado CERRADO" tone="red"/><Metric icon={<CheckCircle2 size={18}/>} label="Abiertos" value={open.toString()} note="requieren seguimiento" tone="green"/><Metric icon={<CalendarDays size={18}/>} label="Eventos del día" value={events.length.toString()} note={selectedDate} tone="orange"/></section>
- <section className="insight-grid"><article className="panel reasons-panel"><div className="panel-head"><div><h2>Motivos de caídos</h2><p>Columna U · registros con estado CERRADO</p></div></div><div className="reason-list">{reasons.map(([name,count])=><div className="reason-row" key={name}><div className="reason-label"><span>{name}</span><b>{count}</b></div><div className="reason-track"><i style={{width:(Math.max(8,count/maxReason*100))+"%"}}/></div></div>)}</div></article><article className="panel event-panel"><div className="panel-head"><div><h2>Eventos del día</h2><p>Separados por vendedor</p></div><select className="date-select" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}>{dates.map(d=><option key={d}>{d}</option>)}</select></div>{grouped.length===0?<div className="empty-events">No hay acciones cargadas para esta fecha.</div>:<div className="event-groups">{grouped.map(([seller,items])=><div className="event-group" key={seller}><div className="group-title"><span className="seller-dot"/><h3>{seller}</h3><em>{items.length} evento{items.length===1?"":"s"}</em></div>{items.map(l=><div className="event-card" key={l.id}><div className="event-date">{l.eventDate}</div><div className="event-main"><b>{[l.name,l.last].filter(Boolean).join(" ")||"Sin nombre"}</b><span>{l.product||"Línea no asignada"}</span><small><strong>Acción:</strong> {l.action||"—"}</small>{l.comment&&<small><strong>Comentario ventas:</strong> {l.comment}</small>}</div><div className="event-id">#{l.id}</div></div>)}</div>)}</div>}</article></section>
+ <section className="stack">
+  <article className="panel reasons-panel">
+   <div className="panel-head">
+    <div><h2>Motivos de caídos</h2><p>Columna U · registros CERRADOS · {reasonTotal} contactos</p></div>
+   </div>
+   {chartData.length===0?<div className="empty-events">Sin motivos cargados.</div>:(
+   <div className="reason-layout">
+    <div className="reason-chart-wrap">
+     <div className="donut-center"><strong>{reasonTotal}</strong><span>caídos</span></div>
+     <ResponsiveContainer width="100%" height={250}>
+      <PieChart>
+       <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={70} outerRadius={105} paddingAngle={2} strokeWidth={2} stroke="#fff">
+        {chartData.map((d,i)=><Cell key={i} fill={d.color} />)}
+       </Pie>
+       <Tooltip contentStyle={{borderRadius:10,border:"1px solid #e8edf3",fontSize:12}} formatter={(value,name)=>[`${value} contactos`,name]} />
+      </PieChart>
+     </ResponsiveContainer>
+    </div>
+    <div className="legend-list">
+     {chartData.map(d=>(
+      <div className="legend-item" key={d.name}>
+       <i style={{background:d.color}} />
+       <span className="legend-name">{d.name}</span>
+       <b>{d.value}</b>
+       <em>{Math.round((d.value/reasonTotal)*100)}%</em>
+      </div>
+     ))}
+    </div>
+   </div>)}
+  </article>
+  <article className="panel event-panel">
+   <div className="panel-head">
+    <div><h2>Eventos del día</h2><p>Hacé clic en un contacto para ver su historial</p></div>
+    <select className="date-select" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}>{dates.map(d=><option key={d}>{d}</option>)}</select>
+   </div>
+   {grouped.length===0?<div className="empty-events">No hay acciones cargadas para esta fecha.</div>:<div className="event-groups">{grouped.map(([seller,items])=><div className="event-group" key={seller}><div className="group-title"><span className="seller-dot"/><h3>{seller}</h3><em>{items.length} evento{items.length===1?"":"s"} · clic para historial</em></div>{items.map(l=><div className="event-card is-click" key={l.id} role="button" tabIndex={0} onClick={()=>setSelectedLead(l)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedLead(l);}}}><div className="event-date">{l.eventDate}</div><div className="event-main"><b>{fullName(l)||"Sin nombre"}</b><span>{l.product||"Línea no asignada"}</span><small><strong>Acción:</strong> {l.action||"—"}</small>{l.comment&&<small><strong>Comentario ventas:</strong> {l.comment}</small>}</div><div className="event-id">#{l.id}</div></div>)}</div>)}</div>}
+  </article>
+  {selectedLead&&<ContactHistoryModal lead={selectedLead} history={contactHistory(selectedLead)} onClose={()=>setSelectedLead(null)} />}
+ </section>
  </main>;
 }
 function Metric({icon,label,value,note,tone}:{icon:React.ReactNode;label:string;value:string;note:string;tone:string}){return <div className="metric"><div className={"metric-icon "+tone}>{icon}</div><div className="metric-copy"><span>{label}</span><strong>{value}</strong><small>{note}</small></div></div>}
+function ContactHistoryModal({lead,history,onClose}:{lead:Lead;history:Lead[];onClose:()=>void}){
+ return (
+  <div className="modal-backdrop" onClick={onClose} role="presentation">
+   <div className="contact-modal" role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()}>
+    <div className="modal-head">
+     <div>
+      <span className="modal-eyebrow">Historial del contacto</span>
+      <h3>{fullName(lead)||"Sin nombre"}</h3>
+      <p>Registro #{lead.id} · vendedor {normalizeSeller(lead.seller)}</p>
+     </div>
+     <button className="modal-close" onClick={onClose} aria-label="Cerrar historial"><X size={16}/></button>
+    </div>
+    <div className="meta-grid">
+     <div className="meta-box"><small>Producto consultado</small><b>{lead.product||"—"}</b></div>
+     <div className="meta-box"><small>Estado actual</small><span className={"status-chip "+(lead.status==="CERRADO"?"closed":"open")}>{lead.status||"—"}</span></div>
+     <div className="meta-box"><small>Última acción</small><b>{lead.action||"—"}</b></div>
+     <div className="meta-box"><small>Motivo</small><span className="reason-chip"><i style={{background:reasonColor(cleanReason(lead.reason))}}/>{cleanReason(lead.reason)}</span></div>
+    </div>
+    <div className="history-head"><h4>Conversaciones / seguimientos</h4><em>{history.length} registro{history.length===1?"":"s"}</em></div>
+    <div className="history-list">
+     {history.map((h,idx)=>(
+      <div className="history-item" key={h.id+"-"+idx}>
+       <div className="history-top"><span className={"status-dot "+(h.status==="CERRADO"?"closed":"open")}/><b>{h.eventDate||"Sin fecha"}</b><span className="history-action">{h.action||"REGISTRO"}</span><em>#{h.id}</em></div>
+       <p className="history-comment">{h.comment||"Sin comentario cargado."}</p>
+       {h.status==="ABIERTO"&&<p className="history-open">Contacto ABIERTO — requiere seguimiento.</p>}
+      </div>
+     ))}
+    </div>
+   </div>
+  </div>
+ );
+}
 
