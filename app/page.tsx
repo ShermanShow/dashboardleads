@@ -186,7 +186,7 @@ const leads=[
 const normalizeSeller=(value:string)=>{const v=value.trim().toUpperCase();if(v==="OFICINA"||v.startsWith("EDGARDO/"))return "EDGARDO";return value.trim()||"SIN ASIGNAR";};
 const cleanReason=(value:string)=>value.trim()||"SIN MOTIVO CARGADO";
 type Lead=(typeof leads)[number];
-// Colores de los motivos según la planilla (valores provisorios hasta recibir la foto con los colores exactos)
+// Colores de los motivos (valores provisorios hasta recibir la foto con los colores exactos)
 const REASON_COLORS:Record<string,string>={
   DESINTERES:"#f0919c", // rojo suave
   "PRECIO ALTO":"#c81e2e", // rojo fuerte
@@ -210,12 +210,12 @@ export default function Home(){
  const dates=useMemo(()=>Array.from(new Set(leads.map(l=>l.eventDate).filter(Boolean))),[]);
  const events=useMemo(()=>leads.filter(l=>l.eventDate===selectedDate&&l.action),[selectedDate]);
  const grouped=useMemo(()=>Object.entries(events.reduce<Record<string,typeof events>>((a,l)=>{const s=normalizeSeller(l.seller);(a[s]??=[]).push(l);return a;},{})),[events]);
- return <main className="workspace"><header className="workspace-header"><div><p className="eyebrow">LEADS VENTAS / SEGUIMIENTO</p><h1>Control comercial</h1></div><div className="sync-badge"><i/> Datos del Sheet · actualizado</div></header>
+ return <main className="workspace"><header className="workspace-header"><div><p className="eyebrow">LEADS VENTAS / SEGUIMIENTO</p><h1>Control comercial</h1></div></header>
  <section className="metrics"><Metric icon={<Users size={18}/>} label="Contactos" value={leads.length.toString()} note="contactos cargados" tone="blue"/><Metric icon={<BarChart3 size={18}/>} label="Caídos" value={closed.toString()} note="estado CERRADO" tone="red"/><Metric icon={<CheckCircle2 size={18}/>} label="Abiertos" value={open.toString()} note="requieren seguimiento" tone="green"/><Metric icon={<CalendarDays size={18}/>} label="Eventos del día" value={events.length.toString()} note={selectedDate} tone="orange"/></section>
  <section className="stack">
   <article className="panel reasons-panel">
    <div className="panel-head">
-    <div><h2>Motivos de caídos</h2><p>Columna U · registros CERRADOS · {reasonTotal} contactos</p></div>
+    <div><h2>Motivos de caídos</h2><p>registros CERRADOS · {reasonTotal} contactos</p></div>
    </div>
    {chartData.length===0?<div className="empty-events">Sin motivos cargados.</div>:(
    <div className="reason-layout">
