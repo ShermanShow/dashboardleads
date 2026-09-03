@@ -10,8 +10,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Faltan datos (id/action)." }, { status: 400 });
   }
 
-  const appUrl = process.env.SHEET_WEBAPP_URL;
-  const token = process.env.SHEET_WRITE_TOKEN;
+  const appUrl = process.env.SHEET_WEBAPP_URL?.trim();
+  const token = process.env.SHEET_WRITE_TOKEN?.trim();
   if (!appUrl) {
     return NextResponse.json(
       { ok: false, error: "Escritura no configurada: falta SHEET_WEBAPP_URL en Vercel." },
