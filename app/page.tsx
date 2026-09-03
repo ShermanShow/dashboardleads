@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BarChart3, CalendarDays, CheckCircle2, Users, X } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import leadsJson from "../data/leads.json";
@@ -31,18 +31,21 @@ export default function Home(){
  const [selectedDate,setSelectedDate]=useState("04/09");
  const [selectedLead,setSelectedLead]=useState<Lead|null>(null);
  const [leads,setLeads]=useState<Lead[]>(initialLeads);
- useEffect(()=>{
-  let alive=true;
-  (async()=>{
-   try{
-    const r=await fetch("/api/leads",{cache:"no-store"});
-    if(!r.ok)return;
-    const d=await r.json();
-    if(alive&&Array.isArray(d)&&d.length)setLeads(d as Lead[]);
-   }catch{/* si falla, se mantiene la ultima version */}
-  })();
-  return ()=>{alive=false;};
+ const refreshFromServer=useCallback(async (keepId?:string|null)=>{
+  try{
+   const r=await fetch("/api/leads",{cache:"no-store"});
+   if(!r.ok)return;
+   const d=await r.json();
+   if(Array.isArray(d)&&d.length){
+    setLeads(d as Lead[]);
+    if(keepId){
+     const fresh=(d as Lead[]).find(x=>String(x.id)===String(keepId));
+     if(fresh)setSelectedLead(fresh);
+    }
+   }
+  }catch{/* mantiene la ultima version */}
  },[]);
+ useEffect(()=>{refreshFromServer(null);},[refreshFromServer]);
  const closed=leads.filter(l=>l.status==="CERRADO").length, open=leads.filter(l=>l.status==="ABIERTO").length;
  const reasons=useMemo(()=>Object.entries(leads.filter(l=>l.status==="CERRADO").reduce<Record<string,number>>((a,l)=>{const r=cleanReason(l.reason);a[r]=(a[r]||0)+1;return a;},{})).sort((a,b)=>b[1]-a[1]),[leads]);
  const reasonTotal=reasons.reduce((a,[,c])=>a+c,0);
@@ -89,14 +92,30 @@ export default function Home(){
    </div>
    {grouped.length===0?<div className="empty-events">No hay acciones cargadas para esta fecha.</div>:<div className="event-groups">{grouped.map(([seller,items])=><div className="event-group" key={seller}><div className="group-title"><span className="seller-dot"/><h3>{seller}</h3><em>{items.length} evento{items.length===1?"":"s"} · clic para historial</em></div>{items.map(l=><div className="event-card is-click" key={l.id} role="button" tabIndex={0} onClick={()=>setSelectedLead(l)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedLead(l);}}}><div className="event-date">{l.eventDate}</div><div className="event-main"><b>{fullName(l)||"Sin nombre"}</b><span>{l.product||"Línea no asignada"}</span><small><strong>Acción:</strong> {l.action||"—"}</small>{l.comment&&<small><strong>Comentario ventas:</strong> {l.comment}</small>}</div><div className="event-id">#{l.id}</div></div>)}</div>)}</div>}
   </article>
-  {selectedLead&&<ContactHistoryModal lead={selectedLead} onClose={()=>setSelectedLead(null)} />}
+  {selectedLead&&<ContactHistoryModal lead={selectedLead} onClose={()=>setSelectedLead(null)} onSaved={(id)=>refreshFromServer(id)} />}
  </section>
  </main>;
 }
 function Metric({icon,label,value,note,tone}:{icon:React.ReactNode;label:string;value:string;note:string;tone:string}){return <div className="metric"><div className={"metric-icon "+tone}>{icon}</div><div className="metric-copy"><span>{label}</span><strong>{value}</strong><small>{note}</small></div></div>}
-function ContactHistoryModal({lead,onClose}:{lead:Lead;onClose:()=>void}){
+function ContactHistoryModal({lead,onClose,onSaved}:{lead:Lead;onClose:()=>void;onSaved:(id:string)=>void}){
  const baseYear=yearOf(lead.fechaIngreso)??yearOf(lead.eventDate)??2026;
  const sorted=[...lead.historial].sort((a,b)=>dateKey(a.fecha,baseYear)-dateKey(b.fecha,baseYear));
+ const [busy,setBusy]=useState(false);
+ const [feedback,setFeedback]=useState<{tipo:"ok"|"err";texto:string}|null>(null);
+ const [nEstado,setNEstado]=useState("");
+ const [nFecha,setNFecha]=useState(()=>{const d=new Date();return d.getDate()+"/"+(d.getMonth()+1)+"/"+String(d.getFullYear()).slice(2);});
+ const [nComentario,setNComentario]=useState("");
+ const toggleStatus=lead.status==="CERRADO"?"ABIERTO":"CERRADO";
+ async function write(action:string,extra:Record<string,unknown>={}){
+  setBusy(true);setFeedback(null);
+  try{
+   const res=await fetch("/api/sheet",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:lead.id,fila:lead.fila,action,...extra})});
+   const data=await res.json().catch(()=>({ok:false,error:"El servidor no respondió correctamente."}));
+   if(data.ok){setFeedback({tipo:"ok",texto:(data.message as string)||"Guardado correctamente."});onSaved(lead.id);}
+   else{setFeedback({tipo:"err",texto:(data.error as string)||"No se pudo guardar."});}
+  }catch(e){setFeedback({tipo:"err",texto:String(e)});}
+  finally{setBusy(false);}
+ }
  const items:{label:string;node:React.ReactNode}[]=[
   {label:"Fecha de ingreso",node:lead.fechaIngreso?lead.fechaIngreso:null},
   {label:"Fuente / campaña",node:lead.fuente?lead.fuente:null},
@@ -137,6 +156,23 @@ function ContactHistoryModal({lead,onClose}:{lead:Lead;onClose:()=>void}){
        </div>
       ))}
      </div>}
+    <div className="write-panel">
+     <div className="history-head"><h4>Registrar en la planilla</h4></div>
+     {feedback&&<div className={"write-feedback "+feedback.tipo}>{feedback.texto}</div>}
+     <div className="write-grid">
+      <label><span>Estado del paso</span><input list="estado-options" value={nEstado} onChange={e=>setNEstado(e.target.value)} placeholder="Ej: SE ENVIO PRESUPUESTO…"/></label>
+      <datalist id="estado-options">
+       {["SE ENVIO PRESUPUESTO","SEGUIMIENTO","RECONTACTAR","COORDINAR DEMO","ENVIAR INFO","NO RESPONDE","CERRADO"].map(o=><option key={o} value={o}/>)}
+      </datalist>
+      <label><span>Fecha</span><input value={nFecha} onChange={e=>setNFecha(e.target.value)} placeholder="dd/mm/aa"/></label>
+     </div>
+     <label className="write-comment"><span>Comentario / resultado</span><textarea rows={2} value={nComentario} onChange={e=>setNComentario(e.target.value)} placeholder="¿Qué se habló con el contacto?"/></label>
+     <div className="write-actions">
+      <button className="btn btn-primary" disabled={busy||!nComentario.trim()} onClick={()=>write("seguimiento",{estado:(nEstado.trim()||"SEGUIMIENTO"),fecha:nFecha.trim(),comentario:nComentario.trim()})}>{busy?"Guardando…":"Registrar seguimiento"}</button>
+      <button className="btn btn-ghost" disabled={busy} onClick={()=>write("estado",{estado:toggleStatus})}>{busy?"…":(lead.status==="CERRADO"?"Reabrir como ABIERTO":"Cerrar contacto (CERRADO)")}</button>
+     </div>
+     <p className="write-hint">Se guarda directo en la fila {lead.fila||""} de la planilla y el historial se actualiza solo.</p>
+    </div>
    </div>
   </div>
  );
