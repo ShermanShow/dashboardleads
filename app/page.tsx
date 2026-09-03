@@ -1,10 +1,11 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart3, CalendarDays, CheckCircle2, Users, X } from "lucide-react";
+import { BarChart3, CalendarDays, CheckCircle2, MessageCircle, Users, X } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import leadsJson from "../data/leads.json";
 const normalizeSeller=(value:string)=>{const v=value.trim().toUpperCase();if(v==="OFICINA"||v.startsWith("EDGARDO/"))return "EDGARDO";return value.trim()||"SIN ASIGNAR";};
 const cleanReason=(value:string)=>value.trim()||"SIN MOTIVO CARGADO";
+const waNumber=(value:string)=>value.replace(/[^\d]/g,"");
 interface HistoryEntry{estado:string;fecha:string;comentario:string}
 interface Lead{
  fila:number;id:string;name:string;last:string;fechaIngreso:string;fuente:string;mail:string;telefono:string;
@@ -62,6 +63,7 @@ export default function Home(){
   sorted.forEach(l=>{const d=l.eventDate||"SIN FECHA";(map[d]??=[]).push(l);});
   return Object.entries(map);
  },[events,isAll]);
+ const productOptions=useMemo(()=>Array.from(new Set(leads.map(l=>l.product).filter(Boolean))).sort((a,b)=>a.localeCompare(b,"es")),[leads]);
  return <main className="workspace"><header className="workspace-header"><div><p className="eyebrow">LEADS VENTAS / SEGUIMIENTO</p><h1>Control comercial</h1></div></header>
  <section className="metrics"><Metric icon={<Users size={18}/>} label="Contactos" value={leads.length.toString()} note="contactos cargados" tone="blue"/><Metric icon={<BarChart3 size={18}/>} label="Caídos" value={closed.toString()} note="estado CERRADO" tone="red"/><Metric icon={<CheckCircle2 size={18}/>} label="Abiertos" value={open.toString()} note="requieren seguimiento" tone="green"/><Metric icon={<CalendarDays size={18}/>} label="Eventos del día" value={events.length.toString()} note={selectedDate} tone="orange"/></section>
  <section className="stack">
@@ -101,36 +103,39 @@ export default function Home(){
    </div>
    {events.length===0?<div className="empty-events">No hay eventos para esta selección.</div>:(isAll?<div className="event-groups">{eventsByDate.map(([d,items])=><div className="event-group" key={d}><div className="group-title"><span className="seller-dot"/><h3>{d==="SIN FECHA"?"Sin fecha asignada":d}</h3><em>{items.length} evento{items.length===1?"":"s"}</em></div>{items.map(l=><div className="event-card is-click" key={l.id+"-"+l.fila} role="button" tabIndex={0} onClick={()=>setSelectedLead(l)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedLead(l);}}}><div className="event-date">{l.eventDate||"—"}</div><div className="event-main"><b>{fullName(l)||"Sin nombre"}</b><span>{l.product||"Línea no asignada"}</span><small><strong>Vendedor:</strong> {normalizeSeller(l.seller)}</small>{l.comment&&<small><strong>Comentario ventas:</strong> {l.comment}</small>}</div><div className="event-id">#{l.id}</div></div>)}</div>)}</div>:<div className="event-groups">{grouped.map(([seller,items])=><div className="event-group" key={seller}><div className="group-title"><span className="seller-dot"/><h3>{seller}</h3><em>{items.length} evento{items.length===1?"":"s"} · clic para historial</em></div>{items.map(l=><div className="event-card is-click" key={l.id+"-"+l.fila} role="button" tabIndex={0} onClick={()=>setSelectedLead(l)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedLead(l);}}}><div className="event-date">{l.eventDate}</div><div className="event-main"><b>{fullName(l)||"Sin nombre"}</b><span>{l.product||"Línea no asignada"}</span><small><strong>Acción:</strong> {l.action||"—"}</small>{l.comment&&<small><strong>Comentario ventas:</strong> {l.comment}</small>}</div><div className="event-id">#{l.id}</div></div>)}</div>)}</div>)}
   </article>
-  {selectedLead&&<ContactHistoryModal lead={selectedLead} onClose={()=>setSelectedLead(null)} onSaved={(id)=>refreshFromServer(id)} />}
+  {selectedLead&&<ContactHistoryModal key={selectedLead.id} lead={selectedLead} productOptions={productOptions} onClose={()=>setSelectedLead(null)} onSaved={(id)=>refreshFromServer(id)} />}
  </section>
  </main>;
 }
 function Metric({icon,label,value,note,tone}:{icon:React.ReactNode;label:string;value:string;note:string;tone:string}){return <div className="metric"><div className={"metric-icon "+tone}>{icon}</div><div className="metric-copy"><span>{label}</span><strong>{value}</strong><small>{note}</small></div></div>}
-function ContactHistoryModal({lead,onClose,onSaved}:{lead:Lead;onClose:()=>void;onSaved:(id:string)=>void}){
+function ContactHistoryModal({lead,onClose,onSaved,productOptions}:{lead:Lead;onClose:()=>void;onSaved:(id:string)=>void;productOptions:string[]}){
  const baseYear=yearOf(lead.fechaIngreso)??yearOf(lead.eventDate)??2026;
  const sorted=[...lead.historial].sort((a,b)=>dateKey(a.fecha,baseYear)-dateKey(b.fecha,baseYear));
  const [busy,setBusy]=useState(false);
- const [feedback,setFeedback]=useState<{tipo:"ok"|"err";texto:string}|null>(null);
+ const [feedback,setFeedback]=useState<{tipo:"ok"|"err";texto:string;area:"panel"|"producto"}|null>(null);
  const [nEstado,setNEstado]=useState("");
  const [nFecha,setNFecha]=useState(()=>{const d=new Date();return d.getDate()+"/"+(d.getMonth()+1)+"/"+String(d.getFullYear()).slice(2);});
  const [nComentario,setNComentario]=useState("");
+ const [nProducto,setNProducto]=useState(lead.product||"");
  const toggleStatus=lead.status==="CERRADO"?"ABIERTO":"CERRADO";
- async function write(action:string,extra:Record<string,unknown>={}){
+ const productDirty=nProducto.trim()!==(lead.product||"").trim();
+ async function write(action:string,extra:Record<string,unknown>={},area:"panel"|"producto"="panel"):Promise<boolean>{
   setBusy(true);setFeedback(null);
   try{
    const res=await fetch("/api/sheet",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:lead.id,fila:lead.fila,action,...extra})});
    const data=await res.json().catch(()=>({ok:false,error:"El servidor no respondió correctamente."}));
-   if(data.ok){setFeedback({tipo:"ok",texto:(data.message as string)||"Guardado correctamente."});onSaved(lead.id);}
-   else{setFeedback({tipo:"err",texto:(data.error as string)||"No se pudo guardar."});}
-  }catch(e){setFeedback({tipo:"err",texto:String(e)});}
+   if(data.ok){setFeedback({tipo:"ok",texto:(data.message as string)||"Guardado correctamente.",area});onSaved(lead.id);return true;}
+   setFeedback({tipo:"err",texto:(data.error as string)||"No se pudo guardar.",area});return false;
+  }catch(e){setFeedback({tipo:"err",texto:String(e),area});return false;}
   finally{setBusy(false);}
  }
+ const saveProducto=async()=>{if(!productDirty||busy)return;await write("producto",{producto:nProducto.trim()},"producto");};
  const items:{label:string;node:React.ReactNode}[]=[
   {label:"Fecha de ingreso",node:lead.fechaIngreso?lead.fechaIngreso:null},
   {label:"Fuente / campaña",node:lead.fuente?lead.fuente:null},
   {label:"Mail",node:lead.mail?<a className="modal-link" href={"mailto:"+lead.mail}>{lead.mail}</a>:null},
-  {label:"Teléfono",node:lead.telefono?<a className="modal-link" href={"tel:"+lead.telefono}>{lead.telefono}</a>:null},
-  {label:"Producto",node:lead.product?lead.product:null},
+  {label:"Teléfono",node:lead.telefono?<span className="contact-links"><a className="modal-link" href={"tel:"+lead.telefono}>{lead.telefono}</a>{waNumber(lead.telefono)?<a className="wa-link" href={"https://wa.me/"+waNumber(lead.telefono)} target="_blank" rel="noopener noreferrer"><MessageCircle size={13}/>WhatsApp</a>:null}</span>:null},
+  {label:"Producto",node:<div className="product-editor"><div className="product-row"><input list="product-options" value={nProducto} onChange={e=>setNProducto(e.target.value)} placeholder={lead.product||"Elegí o escribí una línea…"}/><button className="btn" disabled={busy||!productDirty||!nProducto.trim()} onClick={saveProducto}>{busy?"Guardando…":"Guardar"}</button></div><datalist id="product-options">{productOptions.map(o=><option key={o} value={o}/>)}</datalist>{feedback&&feedback.area==="producto"?<em className={"product-feedback "+feedback.tipo}>{feedback.texto}</em>:null}</div>},
   {label:"Vendedor",node:normalizeSeller(lead.seller)!=="SIN ASIGNAR"?normalizeSeller(lead.seller):null},
   {label:"Estado",node:lead.status?<span className={"status-chip "+(lead.status==="CERRADO"?"closed":"open")}>{lead.status}</span>:null},
   {label:"Última acción",node:lead.action?lead.action+(lead.eventDate?" · "+lead.eventDate:""):null},
@@ -167,7 +172,7 @@ function ContactHistoryModal({lead,onClose,onSaved}:{lead:Lead;onClose:()=>void;
      </div>}
     <div className="write-panel">
      <div className="history-head"><h4>Registrar en la planilla</h4></div>
-     {feedback&&<div className={"write-feedback "+feedback.tipo}>{feedback.texto}</div>}
+     {feedback&&feedback.area==="panel"&&<div className={"write-feedback "+feedback.tipo}>{feedback.texto}</div>}
      <div className="write-grid">
       <label><span>Estado del paso</span><input list="estado-options" value={nEstado} onChange={e=>setNEstado(e.target.value)} placeholder="Ej: SE ENVIO PRESUPUESTO…"/></label>
       <datalist id="estado-options">

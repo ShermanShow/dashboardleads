@@ -17,6 +17,12 @@
   - Env vars en Vercel: SHEET_WEBAPP_URL y SHEET_WRITE_TOKEN (token: Sistemas748!)
   - Acciones: seguimiento (nuevo estado/fecha/comentario), estado (ABIERTO/CERRADO),
     datos (fechaAccion/accion/motivo/comentario columnas S/T/U/V)
+  - producto (asignar LINEA DE PRODUCTO): la manda el panel (action:"producto", campo
+    "producto"). REQUIERE handler nuevo en el Apps Script (aún no implementado) que
+    escriba la columna LINEA DE PRODUCTO en la fila.
+- Ficha de contacto: teléfono con link tel: + botón WhatsApp (wa.me/<digitos tal cual>);
+  caja "Producto" editable (combobox con líneas existentes + texto libre, se guarda con
+  la acción producto).
 
 ## Reglas de trabajo (.clinerules)
 - No usar comandos bloqueantes ni sleeps largos en primer plano;
@@ -24,4 +30,6 @@
 
 ## Pendiente / posible
 - Colores de la torta de motivos: provisorios (falta foto de la planilla para afinar)
+- Apps Script: agregar handler de action "producto" (campo "producto") que escriba la
+  columna LINEA DE PRODUCTO de la fila. El panel ya lo manda desde la ficha de contacto.
 - Apps Script: si se cambia código, crear nueva versión en la implementación web.
