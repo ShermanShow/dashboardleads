@@ -24,8 +24,16 @@
   cual>, sin +54; ya no hay link tel: ni botón verde). Caja "Producto" editable (combobox
   con líneas existentes + texto libre, se guarda con la acción producto). Campo FECHA del
   "Registrar en la planilla" usa picker nativo de calendario (input type=date, valor final
-  se envía como dd/mm/aa).
-
+  se envía como dd/mm/aa).- Mapa de columnas de la planilla (fila de datos): Q=LINEA DE PRODUCTO, R=ESTADO GRAL,
+  S=FECHA ACCION, T=ACCION, U=MOTIVO ESTADO, V=COMENTARIO VENTAS (W.. en adelante:
+  ESTADO n / FECHA Estado n / COMENTARIO Estado n = historial de pasos).
+- En la ficha hay bloque "Editar acción actual" que escribe R-S-T-U-V desde el panel:
+  - R (ESTADO GRAL) -> accion "estado" {estado: ABIERTO|CERRADO}
+  - S/T/U/V -> accion "datos" {fechaAccion, accion, motivo, comentario}; solo se envían
+    las columnas que cambiaron. MOTIVO usa lista cerrada; ACCION texto libre c/ sugerencias.
+- Modal sin scroll visible: columna flexible, zona media (datos/historial) con scroll
+  oculto y formulario "Registrar en la planilla" fijo abajo; body con scroll bloqueado
+  mientras está abierto.
 ## Reglas de trabajo (.clinerules)
 - No usar comandos bloqueantes ni sleeps largos en primer plano;
   procesos que corren seguido ir en segundo plano.

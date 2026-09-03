@@ -7,7 +7,9 @@ const normalizeSeller=(value:string)=>{const v=value.trim().toUpperCase();if(v==
 const cleanReason=(value:string)=>value.trim()||"SIN MOTIVO CARGADO";
 const waNumber=(value:string)=>value.replace(/[^\d]/g,"");
 const isoToDmy=(iso:string)=>{if(!iso)return "";const [y,m,d]=iso.split("-").map(Number);if(!y||!m||!d)return "";return d+"/"+m+"/"+String(y).slice(-2);};
-const dmyToIso=(dmy:string)=>{const m=dmy.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);if(!m)return "";let y=parseInt(m[3],10);if(y<100)y+=2000;const mo=String(parseInt(m[2],10)).padStart(2,"0");const d=String(parseInt(m[1],10)).padStart(2,"0");return y+"-"+mo+"-"+d;};
+const dmyToIso=(dmy:string)=>{const m=dmy.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);if(!m)return "";const d=parseInt(m[1],10),mo=parseInt(m[2],10);if(!d||!mo||mo>12||d>31)return "";let y=m[3]?parseInt(m[3],10):new Date().getFullYear();if(y<100)y+=2000;return y+"-"+String(mo).padStart(2,"0")+"-"+String(d).padStart(2,"0");};
+const BASE_ACCIONES=["CONTACTAR","SE ENVIO PRESUPUESTO","SEGUIMIENTO","RECONTACTAR","COORDINAR DEMO","ENVIAR INFO","NO RESPONDE","CERRADO"];
+const BASE_MOTIVOS=["DESINTERES","PRECIO ALTO","FALTA STOCK","DERIVADO","CALIDAD LEAD","SEGUIMIENTO","CONCRETADO"];
 interface HistoryEntry{estado:string;fecha:string;comentario:string}
 interface Lead{
  fila:number;id:string;name:string;last:string;fechaIngreso:string;fuente:string;mail:string;telefono:string;
@@ -66,6 +68,8 @@ export default function Home(){
   return Object.entries(map);
  },[events,isAll]);
  const productOptions=useMemo(()=>Array.from(new Set(leads.map(l=>l.product).filter(Boolean))).sort((a,b)=>a.localeCompare(b,"es")),[leads]);
+ const actionOptions=useMemo(()=>Array.from(new Set([...BASE_ACCIONES,...leads.map(l=>l.action).filter(Boolean)])).sort((a,b)=>a.localeCompare(b,"es")),[leads]);
+ const reasonOptions=useMemo(()=>Array.from(new Set([...BASE_MOTIVOS,...leads.map(l=>l.reason).map(s=>s.trim()).filter(Boolean)])).sort((a,b)=>a.localeCompare(b,"es")),[leads]);
  return <main className="workspace"><header className="workspace-header"><div><p className="eyebrow">LEADS VENTAS / SEGUIMIENTO</p><h1>Control comercial</h1></div></header>
  <section className="metrics"><Metric icon={<Users size={18}/>} label="Contactos" value={leads.length.toString()} note="contactos cargados" tone="blue"/><Metric icon={<BarChart3 size={18}/>} label="Caídos" value={closed.toString()} note="estado CERRADO" tone="red"/><Metric icon={<CheckCircle2 size={18}/>} label="Abiertos" value={open.toString()} note="requieren seguimiento" tone="green"/><Metric icon={<CalendarDays size={18}/>} label="Eventos del día" value={events.length.toString()} note={selectedDate} tone="orange"/></section>
  <section className="stack">
@@ -105,24 +109,35 @@ export default function Home(){
    </div>
    {events.length===0?<div className="empty-events">No hay eventos para esta selección.</div>:(isAll?<div className="event-groups">{eventsByDate.map(([d,items])=><div className="event-group" key={d}><div className="group-title"><span className="seller-dot"/><h3>{d==="SIN FECHA"?"Sin fecha asignada":d}</h3><em>{items.length} evento{items.length===1?"":"s"}</em></div>{items.map(l=><div className="event-card is-click" key={l.id+"-"+l.fila} role="button" tabIndex={0} onClick={()=>setSelectedLead(l)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedLead(l);}}}><div className="event-date">{l.eventDate||"—"}</div><div className="event-main"><b>{fullName(l)||"Sin nombre"}</b><span>{l.product||"Línea no asignada"}</span><small><strong>Vendedor:</strong> {normalizeSeller(l.seller)}</small>{l.comment&&<small><strong>Comentario ventas:</strong> {l.comment}</small>}</div><div className="event-id">#{l.id}</div></div>)}</div>)}</div>:<div className="event-groups">{grouped.map(([seller,items])=><div className="event-group" key={seller}><div className="group-title"><span className="seller-dot"/><h3>{seller}</h3><em>{items.length} evento{items.length===1?"":"s"} · clic para historial</em></div>{items.map(l=><div className="event-card is-click" key={l.id+"-"+l.fila} role="button" tabIndex={0} onClick={()=>setSelectedLead(l)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedLead(l);}}}><div className="event-date">{l.eventDate}</div><div className="event-main"><b>{fullName(l)||"Sin nombre"}</b><span>{l.product||"Línea no asignada"}</span><small><strong>Acción:</strong> {l.action||"—"}</small>{l.comment&&<small><strong>Comentario ventas:</strong> {l.comment}</small>}</div><div className="event-id">#{l.id}</div></div>)}</div>)}</div>)}
   </article>
-  {selectedLead&&<ContactHistoryModal key={selectedLead.id} lead={selectedLead} productOptions={productOptions} onClose={()=>setSelectedLead(null)} onSaved={(id)=>refreshFromServer(id)} />}
+  {selectedLead&&<ContactHistoryModal key={selectedLead.id} lead={selectedLead} productOptions={productOptions} actionOptions={actionOptions} reasonOptions={reasonOptions} onClose={()=>setSelectedLead(null)} onSaved={(id)=>refreshFromServer(id)} />}
  </section>
  </main>;
 }
 function Metric({icon,label,value,note,tone}:{icon:React.ReactNode;label:string;value:string;note:string;tone:string}){return <div className="metric"><div className={"metric-icon "+tone}>{icon}</div><div className="metric-copy"><span>{label}</span><strong>{value}</strong><small>{note}</small></div></div>}
-function ContactHistoryModal({lead,onClose,onSaved,productOptions}:{lead:Lead;onClose:()=>void;onSaved:(id:string)=>void;productOptions:string[]}){
+function ContactHistoryModal({lead,onClose,onSaved,productOptions,actionOptions,reasonOptions}:{lead:Lead;onClose:()=>void;onSaved:(id:string)=>void;productOptions:string[];actionOptions:string[];reasonOptions:string[]}){
  const baseYear=yearOf(lead.fechaIngreso)??yearOf(lead.eventDate)??2026;
  const sorted=[...lead.historial].sort((a,b)=>dateKey(a.fecha,baseYear)-dateKey(b.fecha,baseYear));
  const [busy,setBusy]=useState(false);
- const [feedback,setFeedback]=useState<{tipo:"ok"|"err";texto:string;area:"panel"|"producto"}|null>(null);
+ const [feedback,setFeedback]=useState<{tipo:"ok"|"err";texto:string;area:"panel"|"producto"|"datos"}|null>(null);
  const [nEstado,setNEstado]=useState("");
  const [nFecha,setNFecha]=useState(()=>{const d=new Date();return d.getDate()+"/"+(d.getMonth()+1)+"/"+String(d.getFullYear()).slice(2);});
  const [nComentario,setNComentario]=useState("");
  const [nProducto,setNProducto]=useState(lead.product||"");
+ const [nEstadoGral,setNEstadoGral]=useState(lead.status||"ABIERTO");
+ const [nFechaAccion,setNFechaAccion]=useState(lead.eventDate||"");
+ const [nAccion,setNAccion]=useState(lead.action||"");
+ const [nMotivo,setNMotivo]=useState(lead.reason||"");
+ const [nComentarioV,setNComentarioV]=useState(lead.comment||"");
  useEffect(()=>{const prev=document.body.style.overflow;document.body.style.overflow="hidden";return ()=>{document.body.style.overflow=prev;};},[]);
  const toggleStatus=lead.status==="CERRADO"?"ABIERTO":"CERRADO";
  const productDirty=nProducto.trim()!==(lead.product||"").trim();
- async function write(action:string,extra:Record<string,unknown>={},area:"panel"|"producto"="panel"):Promise<boolean>{
+ const RChanged=nEstadoGral!==(lead.status||"ABIERTO");
+ const SChanged=nFechaAccion.trim()!==(lead.eventDate||"").trim();
+ const TChanged=nAccion.trim()!==(lead.action||"").trim();
+ const UChanged=nMotivo.trim()!==(lead.reason||"").trim();
+ const VChanged=nComentarioV.trim()!==(lead.comment||"").trim();
+ const datosDirty=RChanged||SChanged||TChanged||UChanged||VChanged;
+ async function write(action:string,extra:Record<string,unknown>={},area:"panel"|"producto"|"datos"="panel"):Promise<boolean>{
   setBusy(true);setFeedback(null);
   try{
    const res=await fetch("/api/sheet",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:lead.id,fila:lead.fila,action,...extra})});
@@ -133,6 +148,16 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions}:{lead:Lead;on
   finally{setBusy(false);}
  }
  const saveProducto=async()=>{if(!productDirty||busy)return;await write("producto",{producto:nProducto.trim()},"producto");};
+ const saveDatos=async()=>{
+  if(!datosDirty||busy)return;
+  if(RChanged){const ok=await write("estado",{estado:nEstadoGral},"datos");if(!ok)return;}
+  const extra:Record<string,string>={};
+  if(SChanged)extra.fechaAccion=nFechaAccion.trim();
+  if(TChanged)extra.accion=nAccion.trim();
+  if(UChanged)extra.motivo=nMotivo.trim();
+  if(VChanged)extra.comentario=nComentarioV.trim();
+  if(Object.keys(extra).length)await write("datos",extra,"datos");
+ };
  const items:{label:string;node:React.ReactNode}[]=[
   {label:"Fecha de ingreso",node:lead.fechaIngreso?lead.fechaIngreso:null},
   {label:"Fuente / campaña",node:lead.fuente?lead.fuente:null},
@@ -160,6 +185,23 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions}:{lead:Lead;on
      {items.map(it=>(
       <div className="meta-box" key={it.label}><small>{it.label}</small><div className="meta-value">{it.node}</div></div>
      ))}
+    </div>
+    <div className="action-editor">
+     <div className="history-head"><h4>Editar acción actual</h4><em>se guarda en la fila {lead.fila||""} · cols R-S-T-U-V</em></div>
+     {feedback&&feedback.area==="datos"?<div className={"write-feedback "+feedback.tipo}>{feedback.texto}</div>:null}
+     <div className="ae-grid">
+      <label><span>Estado (R)</span><select value={nEstadoGral} onChange={e=>setNEstadoGral(e.target.value)}><option value="ABIERTO">ABIERTO</option><option value="CERRADO">CERRADO</option></select></label>
+      <label><span>Fecha acción (S)</span><input type="date" value={dmyToIso(nFechaAccion)} onChange={e=>setNFechaAccion(isoToDmy(e.target.value))}/></label>
+     </div>
+     <div className="ae-grid">
+      <label><span>Acción (T)</span><input list="action-options" value={nAccion} onChange={e=>setNAccion(e.target.value)} placeholder="Ej: SE ENVIO PRESUPUESTO…"/><datalist id="action-options">{actionOptions.map(o=><option key={o} value={o}/>)}</datalist></label>
+      <label><span>Motivo estado (U)</span><select value={nMotivo} onChange={e=>setNMotivo(e.target.value)}><option value="">— sin motivo —</option>{reasonOptions.map(o=><option key={o} value={o}>{o}</option>)}</select></label>
+     </div>
+     <label className="ae-comment"><span>Comentario ventas (V)</span><textarea rows={1} value={nComentarioV} onChange={e=>setNComentarioV(e.target.value)} placeholder="Situación actual del contacto…"/></label>
+     <div className="write-actions">
+      <button className="btn btn-primary" disabled={busy||!datosDirty} onClick={saveDatos}>{busy?"Guardando…":"Guardar cambios"}</button>
+      <span className="write-hint">Solo se envían las columnas que cambiaste.</span>
+     </div>
     </div>
     {lead.comentarioInicial?<div className="lead-note"><small>Mensaje / consulta del contacto</small><p>{lead.comentarioInicial}</p></div>:null}
     {lead.comment?<div className="lead-note"><small>Comentario de ventas (situación actual)</small><p>{lead.comment}</p></div>:null}
