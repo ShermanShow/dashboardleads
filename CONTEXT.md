@@ -20,9 +20,11 @@
   - producto (asignar LINEA DE PRODUCTO): la manda el panel (action:"producto", campo
     "producto"). REQUIERE handler nuevo en el Apps Script (aún no implementado) que
     escriba la columna LINEA DE PRODUCTO en la fila.
-- Ficha de contacto: teléfono con link tel: + botón WhatsApp (wa.me/<digitos tal cual>);
-  caja "Producto" editable (combobox con líneas existentes + texto libre, se guarda con
-  la acción producto).
+- Ficha de contacto: el NÚMERO de teléfono es link directo a WhatsApp (wa.me/<digitos tal
+  cual>, sin +54; ya no hay link tel: ni botón verde). Caja "Producto" editable (combobox
+  con líneas existentes + texto libre, se guarda con la acción producto). Campo FECHA del
+  "Registrar en la planilla" usa picker nativo de calendario (input type=date, valor final
+  se envía como dd/mm/aa).
 
 ## Reglas de trabajo (.clinerules)
 - No usar comandos bloqueantes ni sleeps largos en primer plano;

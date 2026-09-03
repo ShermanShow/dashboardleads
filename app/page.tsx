@@ -1,11 +1,13 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart3, CalendarDays, CheckCircle2, MessageCircle, Users, X } from "lucide-react";
+import { BarChart3, CalendarDays, CheckCircle2, Users, X } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import leadsJson from "../data/leads.json";
 const normalizeSeller=(value:string)=>{const v=value.trim().toUpperCase();if(v==="OFICINA"||v.startsWith("EDGARDO/"))return "EDGARDO";return value.trim()||"SIN ASIGNAR";};
 const cleanReason=(value:string)=>value.trim()||"SIN MOTIVO CARGADO";
 const waNumber=(value:string)=>value.replace(/[^\d]/g,"");
+const isoToDmy=(iso:string)=>{if(!iso)return "";const [y,m,d]=iso.split("-").map(Number);if(!y||!m||!d)return "";return d+"/"+m+"/"+String(y).slice(-2);};
+const dmyToIso=(dmy:string)=>{const m=dmy.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);if(!m)return "";let y=parseInt(m[3],10);if(y<100)y+=2000;const mo=String(parseInt(m[2],10)).padStart(2,"0");const d=String(parseInt(m[1],10)).padStart(2,"0");return y+"-"+mo+"-"+d;};
 interface HistoryEntry{estado:string;fecha:string;comentario:string}
 interface Lead{
  fila:number;id:string;name:string;last:string;fechaIngreso:string;fuente:string;mail:string;telefono:string;
@@ -134,7 +136,7 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions}:{lead:Lead;on
   {label:"Fecha de ingreso",node:lead.fechaIngreso?lead.fechaIngreso:null},
   {label:"Fuente / campaña",node:lead.fuente?lead.fuente:null},
   {label:"Mail",node:lead.mail?<a className="modal-link" href={"mailto:"+lead.mail}>{lead.mail}</a>:null},
-  {label:"Teléfono",node:lead.telefono?<span className="contact-links"><a className="modal-link" href={"tel:"+lead.telefono}>{lead.telefono}</a>{waNumber(lead.telefono)?<a className="wa-link" href={"https://wa.me/"+waNumber(lead.telefono)} target="_blank" rel="noopener noreferrer"><MessageCircle size={13}/>WhatsApp</a>:null}</span>:null},
+  {label:"Teléfono",node:lead.telefono?waNumber(lead.telefono)?<a className="wa-number" href={"https://wa.me/"+waNumber(lead.telefono)} target="_blank" rel="noopener noreferrer" title="Abrir WhatsApp">{lead.telefono}</a>:lead.telefono:null},
   {label:"Producto",node:<div className="product-editor"><div className="product-row"><input list="product-options" value={nProducto} onChange={e=>setNProducto(e.target.value)} placeholder={lead.product||"Elegí o escribí una línea…"}/><button className="btn" disabled={busy||!productDirty||!nProducto.trim()} onClick={saveProducto}>{busy?"Guardando…":"Guardar"}</button></div><datalist id="product-options">{productOptions.map(o=><option key={o} value={o}/>)}</datalist>{feedback&&feedback.area==="producto"?<em className={"product-feedback "+feedback.tipo}>{feedback.texto}</em>:null}</div>},
   {label:"Vendedor",node:normalizeSeller(lead.seller)!=="SIN ASIGNAR"?normalizeSeller(lead.seller):null},
   {label:"Estado",node:lead.status?<span className={"status-chip "+(lead.status==="CERRADO"?"closed":"open")}>{lead.status}</span>:null},
@@ -178,7 +180,7 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions}:{lead:Lead;on
       <datalist id="estado-options">
        {["SE ENVIO PRESUPUESTO","SEGUIMIENTO","RECONTACTAR","COORDINAR DEMO","ENVIAR INFO","NO RESPONDE","CERRADO"].map(o=><option key={o} value={o}/>)}
       </datalist>
-      <label><span>Fecha</span><input value={nFecha} onChange={e=>setNFecha(e.target.value)} placeholder="dd/mm/aa"/></label>
+      <label><span>Fecha</span><input type="date" value={dmyToIso(nFecha)} onChange={e=>setNFecha(isoToDmy(e.target.value))}/></label>
      </div>
      <label className="write-comment"><span>Comentario / resultado</span><textarea rows={2} value={nComentario} onChange={e=>setNComentario(e.target.value)} placeholder="¿Qué se habló con el contacto?"/></label>
      <div className="write-actions">
