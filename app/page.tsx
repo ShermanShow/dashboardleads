@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BarChart3, CalendarDays, CheckCircle2, Users, X } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import leadsJson from "../data/leads.json";
@@ -10,7 +10,7 @@ interface Lead{
  fila:number;id:string;name:string;last:string;fechaIngreso:string;fuente:string;mail:string;telefono:string;
  product:string;seller:string;status:string;eventDate:string;action:string;reason:string;comment:string;comentarioInicial:string;historial:HistoryEntry[];
 }
-const leads=(leadsJson as {leads:Lead[]}).leads;
+const initialLeads=()=>(leadsJson as {leads:Lead[]}).leads;
 // Colores de los motivos (valores provisorios hasta recibir la foto con los colores exactos)
 const REASON_COLORS:Record<string,string>={
   DESINTERES:"#f0919c", // rojo suave
@@ -30,12 +30,25 @@ const toneOf=(e:string)=>/cerrad|desinter|baja|sin (respuesta|interes)/i.test(e)
 export default function Home(){
  const [selectedDate,setSelectedDate]=useState("04/09");
  const [selectedLead,setSelectedLead]=useState<Lead|null>(null);
+ const [leads,setLeads]=useState<Lead[]>(initialLeads);
+ useEffect(()=>{
+  let alive=true;
+  (async()=>{
+   try{
+    const r=await fetch("/api/leads",{cache:"no-store"});
+    if(!r.ok)return;
+    const d=await r.json();
+    if(alive&&Array.isArray(d)&&d.length)setLeads(d as Lead[]);
+   }catch{/* si falla, se mantiene la ultima version */}
+  })();
+  return ()=>{alive=false;};
+ },[]);
  const closed=leads.filter(l=>l.status==="CERRADO").length, open=leads.filter(l=>l.status==="ABIERTO").length;
- const reasons=useMemo(()=>Object.entries(leads.filter(l=>l.status==="CERRADO").reduce<Record<string,number>>((a,l)=>{const r=cleanReason(l.reason);a[r]=(a[r]||0)+1;return a;},{})).sort((a,b)=>b[1]-a[1]),[]);
+ const reasons=useMemo(()=>Object.entries(leads.filter(l=>l.status==="CERRADO").reduce<Record<string,number>>((a,l)=>{const r=cleanReason(l.reason);a[r]=(a[r]||0)+1;return a;},{})).sort((a,b)=>b[1]-a[1]),[leads]);
  const reasonTotal=reasons.reduce((a,[,c])=>a+c,0);
  const chartData=reasons.map(([name,value])=>({name,value,color:reasonColor(name)}));
- const dates=useMemo(()=>Array.from(new Set(leads.map(l=>l.eventDate).filter(Boolean))),[]);
- const events=useMemo(()=>leads.filter(l=>l.eventDate===selectedDate&&l.action),[selectedDate]);
+ const dates=useMemo(()=>Array.from(new Set(leads.map(l=>l.eventDate).filter(Boolean))),[leads]);
+ const events=useMemo(()=>leads.filter(l=>l.eventDate===selectedDate&&l.action),[leads,selectedDate]);
  const grouped=useMemo(()=>Object.entries(events.reduce<Record<string,typeof events>>((a,l)=>{const s=normalizeSeller(l.seller);(a[s]??=[]).push(l);return a;},{})),[events]);
  return <main className="workspace"><header className="workspace-header"><div><p className="eyebrow">LEADS VENTAS / SEGUIMIENTO</p><h1>Control comercial</h1></div></header>
  <section className="metrics"><Metric icon={<Users size={18}/>} label="Contactos" value={leads.length.toString()} note="contactos cargados" tone="blue"/><Metric icon={<BarChart3 size={18}/>} label="Caídos" value={closed.toString()} note="estado CERRADO" tone="red"/><Metric icon={<CheckCircle2 size={18}/>} label="Abiertos" value={open.toString()} note="requieren seguimiento" tone="green"/><Metric icon={<CalendarDays size={18}/>} label="Eventos del día" value={events.length.toString()} note={selectedDate} tone="orange"/></section>
