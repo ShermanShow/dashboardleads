@@ -156,8 +156,10 @@ body {
 .event-card.is-click{cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease}
 .event-card.is-click:hover,.event-card.is-click:focus-visible{border-color:#3d78d8;box-shadow:0 4px 14px #182b4a12;outline:none}
 .modal-backdrop{position:fixed;inset:0;background:#16233d66;display:grid;place-items:center;padding:22px;z-index:60;animation:modalFade .18s ease}
-.contact-modal{background:#fff;border-radius:14px;box-shadow:0 24px 70px #0f172a4d;width:100%;max-width:660px;max-height:min(94vh,920px);overflow-y:auto;overflow-x:hidden;padding:15px 18px 18px;scrollbar-width:thin;animation:modalPop .18s ease}
-.modal-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;padding-bottom:10px;border-bottom:1px solid #edf0f4}
+.contact-modal{background:#fff;border-radius:14px;box-shadow:0 24px 70px #0f172a4d;width:100%;max-width:660px;max-height:min(94vh,920px);display:flex;flex-direction:column;overflow:hidden;padding:15px 18px 16px;animation:modalPop .18s ease}
+.modal-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-ms-overflow-style:none}
+.modal-scroll::-webkit-scrollbar{display:none}
+.modal-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;padding-bottom:10px;border-bottom:1px solid #edf0f4;flex:0 0 auto}
 .modal-head h3{font-size:17px;margin:2px 0 0;color:#172033;letter-spacing:-.02em}
 .modal-head p{font-size:12px;color:#9aa6b7;margin:4px 0 0}
 .modal-eyebrow{font-size:10px;font-weight:700;letter-spacing:.12em;color:#3d78d8;text-transform:uppercase}
@@ -175,7 +177,7 @@ body {
 .history-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .history-head h4{margin:0;font-size:13px;color:#172033}
 .history-head em{font-style:normal;font-size:11px;color:#9aa6b7}
-.history-list{display:grid;gap:9px;max-height:34vh;overflow-y:auto;scrollbar-width:thin}
+.history-list{display:grid;gap:9px}
 .history-item{border:1px solid #edf0f4;border-left:3px solid #dbe4ee;border-radius:9px;padding:9px 13px;background:#fcfdff}
 .history-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .history-top b{font-size:11px;color:#172033}
@@ -226,7 +228,7 @@ body {
 
 
 /* === Escritura hacia la planilla === */
-.write-panel{border-top:1px dashed #e3e9f0;margin-top:12px;padding-top:10px}
+.write-panel{border-top:1px dashed #e3e9f0;margin-top:12px;padding:10px 0 0;flex:0 0 auto}
 .write-panel .history-head{margin-bottom:8px}
 .write-grid{display:grid;grid-template-columns:1fr 170px;gap:10px;margin-bottom:10px}
 .write-panel label{display:block}

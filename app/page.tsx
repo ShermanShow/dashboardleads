@@ -119,6 +119,7 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions}:{lead:Lead;on
  const [nFecha,setNFecha]=useState(()=>{const d=new Date();return d.getDate()+"/"+(d.getMonth()+1)+"/"+String(d.getFullYear()).slice(2);});
  const [nComentario,setNComentario]=useState("");
  const [nProducto,setNProducto]=useState(lead.product||"");
+ useEffect(()=>{const prev=document.body.style.overflow;document.body.style.overflow="hidden";return ()=>{document.body.style.overflow=prev;};},[]);
  const toggleStatus=lead.status==="CERRADO"?"ABIERTO":"CERRADO";
  const productDirty=nProducto.trim()!==(lead.product||"").trim();
  async function write(action:string,extra:Record<string,unknown>={},area:"panel"|"producto"="panel"):Promise<boolean>{
@@ -154,6 +155,7 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions}:{lead:Lead;on
      </div>
      <button className="modal-close" onClick={onClose} aria-label="Cerrar historial"><X size={16}/></button>
     </div>
+    <div className="modal-scroll">
     <div className="meta-grid">
      {items.map(it=>(
       <div className="meta-box" key={it.label}><small>{it.label}</small><div className="meta-value">{it.node}</div></div>
@@ -172,6 +174,7 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions}:{lead:Lead;on
        </div>
       ))}
      </div>}
+    </div>
     <div className="write-panel">
      <div className="history-head"><h4>Registrar en la planilla</h4></div>
      {feedback&&feedback.area==="panel"&&<div className={"write-feedback "+feedback.tipo}>{feedback.texto}</div>}
