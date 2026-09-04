@@ -73,6 +73,11 @@ export default function Home(){
  const productOptions=useMemo(()=>Array.from(new Set(leads.map(l=>l.product).filter(Boolean))).sort((a,b)=>a.localeCompare(b,"es")),[leads]);
  const actionOptions=useMemo(()=>Array.from(new Set([...BASE_ACCIONES,...leads.map(l=>l.action).filter(Boolean)])).sort((a,b)=>a.localeCompare(b,"es")),[leads]);
  const reasonOptions=useMemo(()=>Array.from(new Set([...BASE_MOTIVOS,...leads.map(l=>l.reason).map(s=>s.trim()).filter(Boolean)])).sort((a,b)=>a.localeCompare(b,"es")),[leads]);
+ const productClosed=useMemo(()=>{
+  const map=new Map<string,{product:string;total:number;reasons:Record<string,number>}>();
+  leads.forEach(l=>{if(l.status!=="CERRADO")return;const p=l.product&&l.product.trim()?l.product.trim():"SIN EQUIPO";let e=map.get(p);if(!e){e={product:p,total:0,reasons:{}};map.set(p,e);}e.total++;const r=cleanReason(l.reason);e.reasons[r]=(e.reasons[r]||0)+1;});
+  return Array.from(map.values()).map(e=>Object.assign({},e,{segments:Object.entries(e.reasons).sort((a,b)=>b[1]-a[1]).map(([reason,count])=>({reason,count,color:reasonColor(reason)}))})).sort((a,b)=>b.total-a.total);
+ },[leads]);
  const qNorm=normSearch(query.trim());
  const qDigits=query.replace(/[^\d]/g,"");
  const results=useMemo(()=>{
@@ -130,6 +135,25 @@ export default function Home(){
      ))}
     </div>
    </div>)}
+  </article>
+  <article className="panel product-reasons-panel">
+   <div className="panel-head">
+    <div><h2>Motivos de caída por equipo</h2><p>registros CERRADOS agrupados por línea de producto</p></div>
+   </div>
+   {productClosed.length===0?<div className="empty-events">Sin datos para mostrar.</div>:
+   <div className="pr-body">
+    {productClosed.map(p=>(
+     <div className="pr-row" key={p.product}>
+      <div className="pr-top"><b>{p.product}</b><em>{p.total} caído{p.total===1?"":"s"}</em></div>
+      <div className="pr-bar">{p.segments.map(s=>(
+       <span key={s.reason} style={{flex:s.count,background:s.color}} title={s.reason+": "+s.count+" ("+Math.round(s.count/p.total*100)+"%)"}></span>
+      ))}</div>
+      <div className="pr-meta">{p.segments.map(s=>(
+       <span key={s.reason}><i style={{background:s.color}}/>{s.reason} {s.count}</span>
+      ))}</div>
+     </div>
+    ))}
+   </div>}
   </article>
   <article className="panel event-panel">
    <div className="panel-head">
