@@ -220,12 +220,28 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions,actionOptions,
      </div>
      <button className="modal-close" onClick={onClose} aria-label="Cerrar historial"><X size={16}/></button>
     </div>
-    <div className="modal-scroll">
+    <div className="modal-body">
+    <div className="ficha-col">
     <div className="meta-grid">
      {items.map(it=>(
       <div className="meta-box" key={it.label}><small>{it.label}</small><div className="meta-value">{it.node}</div></div>
      ))}
     </div>
+    {lead.comentarioInicial?<div className="lead-note"><small>Mensaje / consulta del contacto</small><p>{lead.comentarioInicial}</p></div>:null}
+    {lead.comment?<div className="lead-note"><small>Comentario de ventas (situación actual)</small><p>{lead.comment}</p></div>:null}
+    <div className="history-head"><h4>Historial de la conversación</h4><em>{sorted.length} paso{sorted.length===1?"":"s"} · cronológico</em></div>
+    {sorted.length===0?<p className="history-empty">Todavía no hay seguimientos cargados para este contacto.</p>:
+     <div className="history-list">
+      {sorted.map((h,idx)=>(
+       <div className="history-item" key={idx}>
+        <div className="history-top"><span className={"estado-dot "+toneOf(h.estado)}/><b>{h.fecha||"Sin fecha"}</b><em>Paso {idx+1}</em></div>
+        <span className="history-estado">{h.estado||"REGISTRO"}</span>
+        <p className="history-comment">{h.comentario||"Sin comentario."}</p>
+       </div>
+      ))}
+     </div>}
+    </div>
+    <div className="side-col">
     <div className="action-editor">
      <div className="history-head"><h4>Editar acción actual</h4><em>se guarda en la fila {lead.fila||""} · cols R-S-T-U-V</em></div>
      {feedback&&feedback.area==="datos"?<div className={"write-feedback "+feedback.tipo}>{feedback.texto}</div>:null}
@@ -243,20 +259,6 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions,actionOptions,
       <span className="write-hint">Solo se envían las columnas que cambiaste.</span>
      </div>
     </div>
-    {lead.comentarioInicial?<div className="lead-note"><small>Mensaje / consulta del contacto</small><p>{lead.comentarioInicial}</p></div>:null}
-    {lead.comment?<div className="lead-note"><small>Comentario de ventas (situación actual)</small><p>{lead.comment}</p></div>:null}
-    <div className="history-head"><h4>Historial de la conversación</h4><em>{sorted.length} paso{sorted.length===1?"":"s"} · cronológico</em></div>
-    {sorted.length===0?<p className="history-empty">Todavía no hay seguimientos cargados para este contacto.</p>:
-     <div className="history-list">
-      {sorted.map((h,idx)=>(
-       <div className="history-item" key={idx}>
-        <div className="history-top"><span className={"estado-dot "+toneOf(h.estado)}/><b>{h.fecha||"Sin fecha"}</b><em>Paso {idx+1}</em></div>
-        <span className="history-estado">{h.estado||"REGISTRO"}</span>
-        <p className="history-comment">{h.comentario||"Sin comentario."}</p>
-       </div>
-      ))}
-     </div>}
-    </div>
     <div className="write-panel">
      <div className="history-head"><h4>Registrar en la planilla</h4></div>
      {feedback&&feedback.area==="panel"&&<div className={"write-feedback "+feedback.tipo}>{feedback.texto}</div>}
@@ -273,6 +275,8 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions,actionOptions,
       <button className="btn btn-ghost" disabled={busy} onClick={closeContact}>{busy?"…":(lead.status==="CERRADO"?"Reabrir como ABIERTO":"Cerrar contacto (CERRADO)")}</button>
      </div>
      <p className="write-hint">Se guarda directo en la fila {lead.fila||""} de la planilla y el historial se actualiza solo.</p>
+    </div>
+    </div>
     </div>
    </div>
   </div>

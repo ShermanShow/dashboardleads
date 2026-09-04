@@ -36,9 +36,12 @@
   de S y T en la planilla lo hace el APPS SCRIPT al recibir action "estado" con
   estado="CERRADO" (el panel NO manda vacíos por action "datos": el script los ignora).
   El panel reenvía estado=CERRADO al guardar cualquier cambio de un contacto cerrado.
-- Modal sin scroll visible: columna flexible, zona media (datos/historial) con scroll
-  oculto y formulario "Registrar en la planilla" fijo abajo; body con scroll bloqueado
-  mientras está abierto.
+- Modal sin scroll visible: la ficha ahora es A PANTALLA COMPLETA (ancho/alto disponible,
+  hasta ~1280px) en DOS COLUMNAS: izquierda = datos + mensajes + historial (el historial
+  usa el espacio restante con scroll interno invisible solo si es muy largo); derecha =
+  "Editar acción actual" (R-S-T-U-V) + "Registrar en la planilla". En pantallas <=980px
+  el body pasa a una columna con scroll interno invisible. Body de la página con scroll
+  bloqueado mientras el modal está abierto.
 - Buscador en el header: filtra contactos cargados por nombre/apellido o teléfono
   (sin distinguir acentos; si el query tiene >=3 dígitos también matchea el número).
   Los resultados abren la ficha del contacto (máx. 30).
