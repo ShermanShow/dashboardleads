@@ -34,6 +34,9 @@
 - Modal sin scroll visible: columna flexible, zona media (datos/historial) con scroll
   oculto y formulario "Registrar en la planilla" fijo abajo; body con scroll bloqueado
   mientras está abierto.
+- Buscador en el header: filtra contactos cargados por nombre/apellido o teléfono
+  (sin distinguir acentos; si el query tiene >=3 dígitos también matchea el número).
+  Los resultados abren la ficha del contacto (máx. 30).
 ## Reglas de trabajo (.clinerules)
 - No usar comandos bloqueantes ni sleeps largos en primer plano;
   procesos que corren seguido ir en segundo plano.

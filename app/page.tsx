@@ -6,6 +6,7 @@ import leadsJson from "../data/leads.json";
 const normalizeSeller=(value:string)=>{const v=value.trim().toUpperCase();if(v==="OFICINA"||v.startsWith("EDGARDO/"))return "EDGARDO";return value.trim()||"SIN ASIGNAR";};
 const cleanReason=(value:string)=>value.trim()||"SIN MOTIVO CARGADO";
 const waNumber=(value:string)=>value.replace(/[^\d]/g,"");
+const normSearch=(s:string)=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 const isoToDmy=(iso:string)=>{if(!iso)return "";const [y,m,d]=iso.split("-").map(Number);if(!y||!m||!d)return "";return d+"/"+m+"/"+String(y).slice(-2);};
 const dmyToIso=(dmy:string)=>{const m=dmy.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);if(!m)return "";const d=parseInt(m[1],10),mo=parseInt(m[2],10);if(!d||!mo||mo>12||d>31)return "";let y=m[3]?parseInt(m[3],10):new Date().getFullYear();if(y<100)y+=2000;return y+"-"+String(mo).padStart(2,"0")+"-"+String(d).padStart(2,"0");};
 const BASE_ACCIONES=["CONTACTAR","SE ENVIO PRESUPUESTO","SEGUIMIENTO","RECONTACTAR","COORDINAR DEMO","ENVIAR INFO","NO RESPONDE","CERRADO"];
@@ -36,6 +37,8 @@ export default function Home(){
  const [selectedDate,setSelectedDate]=useState("TODOS");
  const [selectedLead,setSelectedLead]=useState<Lead|null>(null);
  const [leads,setLeads]=useState<Lead[]>(initialLeads);
+ const [query,setQuery]=useState("");
+ const [showResults,setShowResults]=useState(false);
  const refreshFromServer=useCallback(async (keepId?:string|null)=>{
   try{
    const r=await fetch("/api/leads",{cache:"no-store"});
@@ -70,7 +73,33 @@ export default function Home(){
  const productOptions=useMemo(()=>Array.from(new Set(leads.map(l=>l.product).filter(Boolean))).sort((a,b)=>a.localeCompare(b,"es")),[leads]);
  const actionOptions=useMemo(()=>Array.from(new Set([...BASE_ACCIONES,...leads.map(l=>l.action).filter(Boolean)])).sort((a,b)=>a.localeCompare(b,"es")),[leads]);
  const reasonOptions=useMemo(()=>Array.from(new Set([...BASE_MOTIVOS,...leads.map(l=>l.reason).map(s=>s.trim()).filter(Boolean)])).sort((a,b)=>a.localeCompare(b,"es")),[leads]);
- return <main className="workspace"><header className="workspace-header"><div><p className="eyebrow">LEADS VENTAS / SEGUIMIENTO</p><h1>Control comercial</h1></div></header>
+ const qNorm=normSearch(query.trim());
+ const qDigits=query.replace(/[^\d]/g,"");
+ const results=useMemo(()=>{
+  if(!qNorm)return [];
+  return leads.filter(l=>{
+   const hay=normSearch([l.name,l.last,l.telefono,l.mail].join(" "));
+   if(hay.includes(qNorm))return true;
+   if(qDigits.length>=3&&waNumber(l.telefono).includes(qDigits))return true;
+   return false;
+  }).slice(0,30);
+ },[leads,qNorm,qDigits]);
+ return <main className="workspace"><header className="workspace-header">
+ <div><p className="eyebrow">LEADS VENTAS / SEGUIMIENTO</p><h1>Control comercial</h1></div>
+ <div className="search-wrap">
+  <input className="search-input" value={query} onChange={e=>{setQuery(e.target.value);setShowResults(true);}} onFocus={()=>setShowResults(true)} onBlur={()=>setTimeout(()=>setShowResults(false),140)} onKeyDown={e=>{if(e.key==="Enter"&&results.length){setSelectedLead(results[0]);setQuery("");setShowResults(false);}}} placeholder="Buscar por nombre, apellido o teléfono…" aria-label="Buscar contacto"/>
+  {query.trim()?<button className="search-clear" onMouseDown={e=>e.preventDefault()} onClick={()=>{setQuery("");setShowResults(false);}} aria-label="Limpiar búsqueda"><X size={15}/></button>:null}
+  {showResults&&query.trim()?<div className="search-drop">
+   {results.length===0?<div className="search-empty">Sin resultados para “{query.trim()}”.</div>:results.map(l=>(
+    <button type="button" className="search-item" key={l.id+"-"+l.fila} onMouseDown={e=>{e.preventDefault();setSelectedLead(l);setQuery("");setShowResults(false);}}>
+     <div className="si-main"><b>{fullName(l)||"Sin nombre"}</b><span>{l.product||"Línea no asignada"} · {normalizeSeller(l.seller)}</span></div>
+     <div className="si-side"><em>{l.telefono||"—"}</em><small>Nº {l.id}</small></div>
+    </button>
+   ))}
+   {results.length>=30?<div className="search-more">Se muestran los primeros 30 resultados.</div>:null}
+  </div>:null}
+ </div>
+ </header>
  <section className="metrics"><Metric icon={<Users size={18}/>} label="Contactos" value={leads.length.toString()} note="contactos cargados" tone="blue"/><Metric icon={<BarChart3 size={18}/>} label="Caídos" value={closed.toString()} note="estado CERRADO" tone="red"/><Metric icon={<CheckCircle2 size={18}/>} label="Abiertos" value={open.toString()} note="requieren seguimiento" tone="green"/><Metric icon={<CalendarDays size={18}/>} label="Eventos del día" value={events.length.toString()} note={selectedDate} tone="orange"/></section>
  <section className="stack">
   <article className="panel reasons-panel">
