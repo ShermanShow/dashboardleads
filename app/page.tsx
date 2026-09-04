@@ -179,13 +179,25 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions,actionOptions,
  const saveProducto=async()=>{if(!productDirty||busy)return;await write("producto",{producto:nProducto.trim()},"producto");};
  const saveDatos=async()=>{
   if(!datosDirty||busy)return;
+  const cerrar=nEstadoGral==="CERRADO";
   if(RChanged){const ok=await write("estado",{estado:nEstadoGral},"datos");if(!ok)return;}
   const extra:Record<string,string>={};
-  if(SChanged)extra.fechaAccion=nFechaAccion.trim();
-  if(TChanged)extra.accion=nAccion.trim();
+  if(cerrar){extra.fechaAccion="";extra.accion="";}
+  else{
+   if(SChanged)extra.fechaAccion=nFechaAccion.trim();
+   if(TChanged)extra.accion=nAccion.trim();
+  }
   if(UChanged)extra.motivo=nMotivo.trim();
   if(VChanged)extra.comentario=nComentarioV.trim();
-  if(Object.keys(extra).length)await write("datos",extra,"datos");
+  if(Object.keys(extra).length){const ok2=await write("datos",extra,"datos");if(!ok2)return;}
+  if(cerrar){setNAccion("");setNFechaAccion("");}
+ };
+ const closeContact=async()=>{
+  if(busy)return;
+  const cerrar=toggleStatus==="CERRADO";
+  const ok=await write("estado",{estado:toggleStatus});
+  if(!ok)return;
+  if(cerrar){setNAccion("");setNFechaAccion("");await write("datos",{accion:"",fechaAccion:""});}
  };
  const items:{label:string;node:React.ReactNode}[]=[
   {label:"Fecha de ingreso",node:lead.fechaIngreso?lead.fechaIngreso:null},
@@ -219,11 +231,11 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions,actionOptions,
      <div className="history-head"><h4>Editar acción actual</h4><em>se guarda en la fila {lead.fila||""} · cols R-S-T-U-V</em></div>
      {feedback&&feedback.area==="datos"?<div className={"write-feedback "+feedback.tipo}>{feedback.texto}</div>:null}
      <div className="ae-grid">
-      <label><span>Estado general</span><select className={nEstadoGral==="CERRADO"?"sel-closed":"sel-open"} value={nEstadoGral} onChange={e=>setNEstadoGral(e.target.value)}><option value="ABIERTO">ABIERTO</option><option value="CERRADO">CERRADO</option></select></label>
-      <label><span>Fecha acción (S)</span><input type="date" value={dmyToIso(nFechaAccion)} onChange={e=>setNFechaAccion(isoToDmy(e.target.value))}/></label>
+      <label><span>Estado general</span><select className={nEstadoGral==="CERRADO"?"sel-closed":"sel-open"} value={nEstadoGral} onChange={e=>{const v=e.target.value;setNEstadoGral(v);if(v==="CERRADO"){setNAccion("");setNFechaAccion("");}}}><option value="ABIERTO">ABIERTO</option><option value="CERRADO">CERRADO</option></select></label>
+      <label><span>Fecha acción (S)</span><input type="date" disabled={nEstadoGral==="CERRADO"} value={dmyToIso(nFechaAccion)} onChange={e=>setNFechaAccion(isoToDmy(e.target.value))}/></label>
      </div>
      <div className="ae-grid">
-      <label><span>Acción a realizar</span><input list="action-options" value={nAccion} onChange={e=>setNAccion(e.target.value)} placeholder="Ej: SE ENVIO PRESUPUESTO…"/><datalist id="action-options">{actionOptions.map(o=><option key={o} value={o}/>)}</datalist></label>
+      <label><span>Acción a realizar</span><input list="action-options" disabled={nEstadoGral==="CERRADO"} value={nAccion} onChange={e=>setNAccion(e.target.value)} placeholder={nEstadoGral==="CERRADO"?"— solo para contactos ABIERTOS —":"Ej: SE ENVIO PRESUPUESTO…"}/><datalist id="action-options">{actionOptions.map(o=><option key={o} value={o}/>)}</datalist></label>
       <label><span>Motivo estado (U)</span><select value={nMotivo} onChange={e=>setNMotivo(e.target.value)}><option value="">— sin motivo —</option>{reasonOptions.map(o=><option key={o} value={o}>{o}</option>)}</select></label>
      </div>
      <label className="ae-comment"><span>Comentario ventas (V)</span><textarea rows={1} value={nComentarioV} onChange={e=>setNComentarioV(e.target.value)} placeholder="Situación actual del contacto…"/></label>
@@ -259,7 +271,7 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions,actionOptions,
      <label className="write-comment"><span>Comentario / resultado</span><textarea rows={2} value={nComentario} onChange={e=>setNComentario(e.target.value)} placeholder="¿Qué se habló con el contacto?"/></label>
      <div className="write-actions">
       <button className="btn btn-primary" disabled={busy||!nComentario.trim()} onClick={()=>write("seguimiento",{estado:(nEstado.trim()||"SEGUIMIENTO"),fecha:nFecha.trim(),comentario:nComentario.trim()})}>{busy?"Guardando…":"Registrar seguimiento"}</button>
-      <button className="btn btn-ghost" disabled={busy} onClick={()=>write("estado",{estado:toggleStatus})}>{busy?"…":(lead.status==="CERRADO"?"Reabrir como ABIERTO":"Cerrar contacto (CERRADO)")}</button>
+      <button className="btn btn-ghost" disabled={busy} onClick={closeContact}>{busy?"…":(lead.status==="CERRADO"?"Reabrir como ABIERTO":"Cerrar contacto (CERRADO)")}</button>
      </div>
      <p className="write-hint">Se guarda directo en la fila {lead.fila||""} de la planilla y el historial se actualiza solo.</p>
     </div>

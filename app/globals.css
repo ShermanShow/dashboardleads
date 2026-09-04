@@ -241,6 +241,7 @@ body {
 .action-editor input[type="date"]::-webkit-calendar-picker-indicator{cursor:pointer}
 .action-editor select.sel-open{color:#16a56c;font-weight:700}
 .action-editor select.sel-closed{color:#c0392b;font-weight:700}
+.action-editor input:disabled{opacity:.55;background:#f2f5f9;cursor:not-allowed}
 .ae-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
 .ae-comment{display:block;margin-bottom:8px}
 .ae-comment textarea{resize:none}
