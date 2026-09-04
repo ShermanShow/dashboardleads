@@ -180,10 +180,9 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions,actionOptions,
  const saveDatos=async()=>{
   if(!datosDirty||busy)return;
   const cerrar=nEstadoGral==="CERRADO";
-  if(RChanged){const ok=await write("estado",{estado:nEstadoGral},"datos");if(!ok)return;}
+  if(RChanged||cerrar){const ok=await write("estado",{estado:nEstadoGral},"datos");if(!ok)return;}
   const extra:Record<string,string>={};
-  if(cerrar){extra.fechaAccion="";extra.accion="";}
-  else{
+  if(!cerrar){
    if(SChanged)extra.fechaAccion=nFechaAccion.trim();
    if(TChanged)extra.accion=nAccion.trim();
   }
@@ -197,7 +196,7 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions,actionOptions,
   const cerrar=toggleStatus==="CERRADO";
   const ok=await write("estado",{estado:toggleStatus});
   if(!ok)return;
-  if(cerrar){setNAccion("");setNFechaAccion("");await write("datos",{accion:"",fechaAccion:""});}
+  if(cerrar){setNAccion("");setNFechaAccion("");}
  };
  const items:{label:string;node:React.ReactNode}[]=[
   {label:"Fecha de ingreso",node:lead.fechaIngreso?lead.fechaIngreso:null},

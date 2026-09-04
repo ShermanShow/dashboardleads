@@ -31,6 +31,11 @@
   - R (ESTADO GRAL) -> accion "estado" {estado: ABIERTO|CERRADO}
   - S/T/U/V -> accion "datos" {fechaAccion, accion, motivo, comentario}; solo se envían
     las columnas que cambiaron. MOTIVO usa lista cerrada; ACCION texto libre c/ sugerencias.
+- Regla de negocio: Accion (T) y Fecha accion (S) son SOLO para contactos ABIERTOS. Al
+  cerrar (estado CERRADO) el panel las deshabilita y limpia en pantalla. El BORRADO real
+  de S y T en la planilla lo hace el APPS SCRIPT al recibir action "estado" con
+  estado="CERRADO" (el panel NO manda vacíos por action "datos": el script los ignora).
+  El panel reenvía estado=CERRADO al guardar cualquier cambio de un contacto cerrado.
 - Modal sin scroll visible: columna flexible, zona media (datos/historial) con scroll
   oculto y formulario "Registrar en la planilla" fijo abajo; body con scroll bloqueado
   mientras está abierto.
