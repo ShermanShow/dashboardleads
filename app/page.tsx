@@ -219,11 +219,11 @@ function ContactHistoryModal({lead,onClose,onSaved,productOptions,actionOptions,
      <div className="history-head"><h4>Editar acción actual</h4><em>se guarda en la fila {lead.fila||""} · cols R-S-T-U-V</em></div>
      {feedback&&feedback.area==="datos"?<div className={"write-feedback "+feedback.tipo}>{feedback.texto}</div>:null}
      <div className="ae-grid">
-      <label><span>Estado (R)</span><select value={nEstadoGral} onChange={e=>setNEstadoGral(e.target.value)}><option value="ABIERTO">ABIERTO</option><option value="CERRADO">CERRADO</option></select></label>
+      <label><span>Estado general</span><select className={nEstadoGral==="CERRADO"?"sel-closed":"sel-open"} value={nEstadoGral} onChange={e=>setNEstadoGral(e.target.value)}><option value="ABIERTO">ABIERTO</option><option value="CERRADO">CERRADO</option></select></label>
       <label><span>Fecha acción (S)</span><input type="date" value={dmyToIso(nFechaAccion)} onChange={e=>setNFechaAccion(isoToDmy(e.target.value))}/></label>
      </div>
      <div className="ae-grid">
-      <label><span>Acción (T)</span><input list="action-options" value={nAccion} onChange={e=>setNAccion(e.target.value)} placeholder="Ej: SE ENVIO PRESUPUESTO…"/><datalist id="action-options">{actionOptions.map(o=><option key={o} value={o}/>)}</datalist></label>
+      <label><span>Acción a realizar</span><input list="action-options" value={nAccion} onChange={e=>setNAccion(e.target.value)} placeholder="Ej: SE ENVIO PRESUPUESTO…"/><datalist id="action-options">{actionOptions.map(o=><option key={o} value={o}/>)}</datalist></label>
       <label><span>Motivo estado (U)</span><select value={nMotivo} onChange={e=>setNMotivo(e.target.value)}><option value="">— sin motivo —</option>{reasonOptions.map(o=><option key={o} value={o}>{o}</option>)}</select></label>
      </div>
      <label className="ae-comment"><span>Comentario ventas (V)</span><textarea rows={1} value={nComentarioV} onChange={e=>setNComentarioV(e.target.value)} placeholder="Situación actual del contacto…"/></label>

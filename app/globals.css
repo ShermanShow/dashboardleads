@@ -239,6 +239,8 @@ body {
 .action-editor input:focus,.action-editor select:focus,.action-editor textarea:focus{outline:none;border-color:#3d78d8;box-shadow:0 0 0 3px #2563eb1a}
 .action-editor input[type="date"]{min-height:34px;color-scheme:light}
 .action-editor input[type="date"]::-webkit-calendar-picker-indicator{cursor:pointer}
+.action-editor select.sel-open{color:#16a56c;font-weight:700}
+.action-editor select.sel-closed{color:#c0392b;font-weight:700}
 .ae-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
 .ae-comment{display:block;margin-bottom:8px}
 .ae-comment textarea{resize:none}
